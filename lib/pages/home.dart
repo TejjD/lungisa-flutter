@@ -1,7 +1,10 @@
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
-import 'package:lungisa/pages/camera.dart';
+
+import '../common/card_picture.dart';
+import '../common/take_photo.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key, required this.title}) : super(key: key);
@@ -22,11 +25,30 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  late CameraDescription _cameraDescription;
+  final List<String> _images = [];
+
+  @override
+  void initState() {
+    availableCameras().then((cameras) {
+      final camera = cameras
+          .where((camera) => camera.lensDirection == CameraLensDirection.back)
+          .toList()
+          .first;
+
+      setState(() {
+        _cameraDescription = camera;
+      });
+    });
+  }
+
   var issueList = {
     'Pothole',
     'Sinkhole',
     'Burst Pipe',
     'Traffic robot',
+    'Water outage',
+    'Street lights',
     'Other'
   };
 
@@ -41,87 +63,106 @@ class _HomeState extends State<Home> {
     // fast, so that you can just rebuild anything that needs updating rather
     // than having to individually change instances of widgets.
     return Scaffold(
-      appBar: AppBar(
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: FormBuilder(
-          key: _formKey,
-          child: Padding(
-            padding: const EdgeInsets.all(35.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                FormBuilderDropdown(
-                  name: 'issues',
-                  decoration: const InputDecoration(
-                    labelText: 'Issue',
-                  ),
-                  // initialValue: 'Male',
-                  allowClear: true,
-                  hint: const Text('Select issue'),
-                  validator: FormBuilderValidators.compose(
-                      [FormBuilderValidators.required()]),
-                  items: issueList
-                      .map((issue) => DropdownMenuItem(
-                            value: issue,
-                            child: Text(issue),
-                          ))
-                      .toList(),
-                ),
-                FormBuilderChoiceChip(
-                  name: 'choice_chip',
-                  decoration: const InputDecoration(
-                    labelText: 'Select a severity',
-                  ),
-                  options: const [
-                    FormBuilderFieldOption(value: 'low', child: Text('Low')),
-                    FormBuilderFieldOption(
-                        value: 'medium', child: Text('Medium')),
-                    FormBuilderFieldOption(value: 'high', child: Text('High')),
-                    FormBuilderFieldOption(
-                        value: 'critical', child: Text('Critical')),
-                  ],
-                ),
-                FormBuilderDateTimePicker(
-                  name: 'date',
-                  // onChanged: _onChanged,
-                  inputType: InputType.both,
-                  decoration: const InputDecoration(
-                    labelText: 'Date spotted',
-                  ),
-                  initialTime: const TimeOfDay(hour: 8, minute: 0),
-                  initialValue: DateTime.now(),
-                  // enabled: true,
-                ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(context,
-                        MaterialPageRoute(builder: (context) => Camera()));
-                  },
-                  icon: const Icon(
-                    // <-- Icon
-                    Icons.camera_alt,
-                    size: 24.0,
-                  ),
-                  label: const Text('Add picture'), // <-- Text
-                ),
-                MaterialButton(
-                  color: Theme.of(context).colorScheme.secondary,
-                  padding: const EdgeInsets.all(10.0),
-                  child: const Text(
-                    "Submit",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  onPressed: () {},
-                ),
+        body: Center(
+      child: FormBuilder(
+        key: _formKey,
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(vertical: 150.0, horizontal: 50.0),
+          child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
+            FormBuilderDropdown(
+              name: 'issues',
+              decoration: const InputDecoration(
+                labelText: 'Issue',
+              ),
+              // initialValue: 'Male',
+              allowClear: true,
+              hint: const Text('Select issue'),
+              validator: FormBuilderValidators.compose(
+                  [FormBuilderValidators.required()]),
+              items: issueList
+                  .map((issue) => DropdownMenuItem(
+                        value: issue,
+                        child: Text(issue),
+                      ))
+                  .toList(),
+            ),
+            FormBuilderChoiceChip(
+              name: 'choice_chip',
+              decoration: const InputDecoration(
+                labelText: 'Select a severity',
+              ),
+              options: const [
+                FormBuilderFieldOption(value: 'low', child: Text('Low')),
+                FormBuilderFieldOption(value: 'medium', child: Text('Medium')),
+                FormBuilderFieldOption(value: 'high', child: Text('High')),
+                FormBuilderFieldOption(
+                    value: 'critical', child: Text('Critical')),
               ],
             ),
-          ),
+            FormBuilderDateTimePicker(
+              name: 'date',
+              // onChanged: _onChanged,
+              inputType: InputType.both,
+              decoration: const InputDecoration(
+                labelText: 'Date spotted',
+              ),
+              initialTime: const TimeOfDay(hour: 8, minute: 0),
+              initialValue: DateTime.now(),
+              // enabled: true,
+            ),
+            const Spacer(),
+            if (_images.isEmpty)
+              CardPicture(
+                onTap: () async {
+                  final String? imagePath =
+                      await Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => TakePhoto(
+                                camera: _cameraDescription,
+                              )));
+
+                  print('imagepath: $imagePath');
+                  if (imagePath != null) {
+                    setState(() {
+                      _images.clear();
+                      _images.add(imagePath);
+                    });
+                  }
+                },
+              ),
+            if (_images.isNotEmpty)
+              CardPicture(
+                  imagePath: _images.first,
+                  onTap: () async {
+                    final String? imagePath =
+                        await Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => TakePhoto(
+                                  camera: _cameraDescription,
+                                )));
+
+                    print('imagepath: $imagePath');
+                    if (imagePath != null) {
+                      setState(() {
+                        _images.clear();
+                        _images.add(imagePath);
+                      });
+                    }
+                  }),
+            const Spacer(),
+            MaterialButton(
+              color: Colors.green,
+              // color: Theme.of(context).colorScheme.secondary,
+              padding: const EdgeInsets.all(10.0),
+              height: 50,
+              child: const Text(
+                "Submit",
+                style: TextStyle(color: Colors.white),
+              ),
+              onPressed: () {},
+            ),
+          ]),
         ),
       ),
-    );
+    ));
   }
 }
