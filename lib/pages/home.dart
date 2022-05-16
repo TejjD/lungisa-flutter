@@ -68,7 +68,7 @@ class _HomeState extends State<Home> {
         key: _formKey,
         child: Padding(
           padding:
-              const EdgeInsets.symmetric(vertical: 150.0, horizontal: 50.0),
+              const EdgeInsets.symmetric(vertical: 130.0, horizontal: 50.0),
           child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
             FormBuilderDropdown(
               name: 'issues',
@@ -110,6 +110,13 @@ class _HomeState extends State<Home> {
               initialTime: const TimeOfDay(hour: 8, minute: 0),
               initialValue: DateTime.now(),
               // enabled: true,
+            ),
+            FormBuilderTextField(
+              name: 'comments',
+              decoration: const InputDecoration(
+                labelText:
+                    'Comments',
+              ),
             ),
             const Spacer(),
             if (_images.isEmpty)
