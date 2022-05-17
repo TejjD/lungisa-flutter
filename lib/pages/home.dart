@@ -41,6 +41,7 @@ class _HomeState extends State<Home> {
   Map<String, String> dataMap = {};
   Position? _currentPosition;
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
+  String VM_VAR = String.fromEnvironment('LUNGISA_VM', defaultValue: 'localhost');
 
   Future<void> submitData() async {
     DateTime now = DateTime.now();
@@ -61,7 +62,7 @@ class _HomeState extends State<Home> {
   }
 
   uploadFile() async {
-    var postUri = Uri.parse("http://192.168.1.109:8080/data/api/v1/addFlutterData");
+    var postUri = Uri.parse("http://${VM_VAR}:8080/data/api/v1/addFlutterData");
     var request = http.MultipartRequest("POST", postUri);
     request.fields['flutterData'] = json.encode(dataMap);
     request.files.add(multipartFile!);
