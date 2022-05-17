@@ -4,6 +4,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 
 import 'package:form_builder_validators/form_builder_validators.dart';
@@ -41,28 +42,24 @@ class _HomeState extends State<Home> {
   Map<String, String> dataMap = {};
   Position? _currentPosition;
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
-  String VM_VAR = const String.fromEnvironment('LUNGISA_VM', defaultValue: 'localhost');
+  String VM_VAR = dotenv.get('VM_URL');
 
   Future<void> submitData() async {
     DateTime now = DateTime.now();
     String formattedDate = DateFormat('kk:mm:ss \n EEE d MMM').format(now);
 
-    _getCurrentLocation();
+    await _getCurrentLocation();
+
+    multipartFile = await http.MultipartFile.fromPath('image', _images.first);
 
     dataMap["issue"] = issues!;
     dataMap["severity"] = severity!;
     dataMap["datetime"] = formattedDate;
     dataMap["comment"] = comments!;
-    dataMap["location"] = "${_currentPosition!.latitude},${_currentPosition!.longitude}";
-
-    multipartFile =
-        await http.MultipartFile.fromPath('image', _images.first); //returns a Future<MultipartFile>
-
-    uploadFile();
   }
 
   uploadFile() async {
-    var postUri = Uri.parse("http://${VM_VAR}:8080/data/api/v1/addFlutterData");
+    var postUri = Uri.parse("http://$VM_VAR:8080/data/api/v1/addFlutterData");
     var request = http.MultipartRequest("POST", postUri);
     request.fields['flutterData'] = json.encode(dataMap);
     request.files.add(multipartFile!);
@@ -78,6 +75,9 @@ class _HomeState extends State<Home> {
         .then((Position position) {
       setState(() {
         _currentPosition = position;
+        dataMap["location"] = "${position.latitude},${position.longitude}";
+        print(_currentPosition);
+        uploadFile();
       });
     }).catchError((e) {
       print(e);
