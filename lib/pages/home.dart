@@ -41,7 +41,7 @@ class _HomeState extends State<Home> {
   Map<String, String> dataMap = {};
   Position? _currentPosition;
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
-  String VM_VAR = String.fromEnvironment('LUNGISA_VM', defaultValue: 'localhost');
+  String VM_VAR = const String.fromEnvironment('LUNGISA_VM', defaultValue: 'localhost');
 
   Future<void> submitData() async {
     DateTime now = DateTime.now();
