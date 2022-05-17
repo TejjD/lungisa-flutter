@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
+import 'package:form_builder_validators/form_builder_validators.dart';
 import '../common/card_picture.dart';
 import '../common/take_photo.dart';
+import 'package:geolocator/geolocator.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key, required this.title}) : super(key: key);
@@ -27,6 +32,56 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   late CameraDescription _cameraDescription;
   final List<String> _images = [];
+  String? imagePath;
+  String? issues;
+  String? comments;
+  String? severity;
+  String? date;
+  http.MultipartFile? multipartFile;
+  Map<String, String> dataMap = {};
+  Position _currentPosition;
+  final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
+
+  Future<void> submitData() async {
+    DateTime now = DateTime.now();
+    String formattedDate = DateFormat('kk:mm:ss \n EEE d MMM').format(now);
+
+    _getCurrentLocation();
+
+    dataMap["issue"] = issues!;
+    dataMap["severity"] = severity!;
+    dataMap["datetime"] = formattedDate;
+    dataMap["comment"] = comments!;
+    dataMap["location"] = "${_currentPosition.latitude},${_currentPosition.longitude}";
+
+    multipartFile =
+        await http.MultipartFile.fromPath('image', _images.first); //returns a Future<MultipartFile>
+
+    uploadFile();
+  }
+
+  uploadFile() async {
+    var postUri = Uri.parse("http://192.168.1.109:8080/data/api/v1/addFlutterData");
+    var request = http.MultipartRequest("POST", postUri);
+    request.fields['flutterData'] = json.encode(dataMap);
+    request.files.add(multipartFile!);
+
+    request.send().then((response) {
+      if (response.statusCode == 200) print("Uploaded!");
+    });
+  }
+
+  _getCurrentLocation() {
+    geolocator
+        .getCurrentPosition(desiredAccuracy: LocationAccuracy.best)
+        .then((Position position) {
+      setState(() {
+        _currentPosition = position;
+      });
+    }).catchError((e) {
+      print(e);
+    });
+  }
 
   @override
   void initState() {
@@ -72,6 +127,9 @@ class _HomeState extends State<Home> {
           child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
             FormBuilderDropdown(
               name: 'issues',
+              onChanged: (val) {
+                issues = val as String?;
+              },
               decoration: const InputDecoration(
                 labelText: 'Issue',
               ),
@@ -89,6 +147,9 @@ class _HomeState extends State<Home> {
             ),
             FormBuilderChoiceChip(
               name: 'choice_chip',
+              onChanged: (val) {
+                severity = val as String?;
+              },
               decoration: const InputDecoration(
                 labelText: 'Select a severity',
               ),
@@ -100,19 +161,11 @@ class _HomeState extends State<Home> {
                     value: 'critical', child: Text('Critical')),
               ],
             ),
-            FormBuilderDateTimePicker(
-              name: 'date',
-              // onChanged: _onChanged,
-              inputType: InputType.both,
-              decoration: const InputDecoration(
-                labelText: 'Date spotted',
-              ),
-              initialTime: const TimeOfDay(hour: 8, minute: 0),
-              initialValue: DateTime.now(),
-              // enabled: true,
-            ),
             FormBuilderTextField(
               name: 'comments',
+              onChanged: (val) {
+                comments = val as String?;
+              },
               decoration: const InputDecoration(
                 labelText:
                     'Comments',
@@ -141,7 +194,7 @@ class _HomeState extends State<Home> {
               CardPicture(
                   imagePath: _images.first,
                   onTap: () async {
-                    final String? imagePath =
+                    imagePath =
                         await Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => TakePhoto(
                                   camera: _cameraDescription,
@@ -151,7 +204,7 @@ class _HomeState extends State<Home> {
                     if (imagePath != null) {
                       setState(() {
                         _images.clear();
-                        _images.add(imagePath);
+                        _images.add(imagePath!);
                       });
                     }
                   }),
@@ -165,7 +218,9 @@ class _HomeState extends State<Home> {
                 "Submit",
                 style: TextStyle(color: Colors.white),
               ),
-              onPressed: () {},
+              onPressed: () {
+                submitData();
+              },
             ),
           ]),
         ),
