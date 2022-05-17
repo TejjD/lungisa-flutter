@@ -39,7 +39,7 @@ class _HomeState extends State<Home> {
   String? date;
   http.MultipartFile? multipartFile;
   Map<String, String> dataMap = {};
-  Position _currentPosition;
+  Position? _currentPosition;
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
 
   Future<void> submitData() async {
@@ -52,7 +52,7 @@ class _HomeState extends State<Home> {
     dataMap["severity"] = severity!;
     dataMap["datetime"] = formattedDate;
     dataMap["comment"] = comments!;
-    dataMap["location"] = "${_currentPosition.latitude},${_currentPosition.longitude}";
+    dataMap["location"] = "${_currentPosition!.latitude},${_currentPosition!.longitude}";
 
     multipartFile =
         await http.MultipartFile.fromPath('image', _images.first); //returns a Future<MultipartFile>
