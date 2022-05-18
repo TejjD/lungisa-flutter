@@ -102,6 +102,7 @@ class _HomeState extends State<Home> {
             TextButton(
               child: const Text("I understand!"),
               onPressed: () {
+                prefs.setBool('safetyCheckAck', true);
                 // Save an double value to 'decimal' key.
                 Navigator.pop(context);
               },
@@ -201,7 +202,6 @@ class _HomeState extends State<Home> {
     final bool? safetyCheckAck = prefs.getBool('safetyCheckAck');
 
     if (safetyCheckAck == null) {
-      await prefs.setBool('safetyCheckAck', true);
       showSafetyDialog();
     }
   }
