@@ -2,15 +2,17 @@ import 'dart:convert';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
-import 'package:form_builder_validators/form_builder_validators.dart';
 import '../common/card_picture.dart';
 import '../common/take_photo.dart';
-import 'package:geolocator/geolocator.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key, required this.title}) : super(key: key);
@@ -43,6 +45,33 @@ class _HomeState extends State<Home> {
   Position? _currentPosition;
   final Geolocator geolocator = Geolocator()..forceAndroidLocationManager;
   String VM_VAR = dotenv.get('VM_URL');
+  bool showLoading = false;
+  bool showMessage = false;
+  bool noImage = false;
+  var issueList = {
+    'Pothole',
+    'Sinkhole',
+    'Burst Pipe',
+    'Traffic robot',
+    'Water outage',
+    'Street lights',
+    'Other'
+  };
+
+  static const spinkit = SpinKitCircle(
+    color: Colors.blue,
+    size: 50.0,
+  );
+
+  static Text responseMessage = const Text("");
+  static Text noImageAdded =
+      const Text("Please add an image!", style: TextStyle(color: Colors.red));
+  static const uploadSuccessMessage = Text(
+      "Your issue has been acknowledged! Thank you for making your community better!",
+      style: TextStyle(color: Colors.green));
+  static const uploadErrorMessage = Text(
+      "An unexpected issue has occurred, please attempt to submit at a later stage",
+      style: TextStyle(color: Colors.red));
 
   Future<void> submitData() async {
     DateTime now = DateTime.now();
@@ -56,6 +85,12 @@ class _HomeState extends State<Home> {
     dataMap["severity"] = severity!;
     dataMap["datetime"] = formattedDate;
     dataMap["comment"] = comments!;
+
+    setState(() {
+      noImage = false;
+      showMessage = false;
+      showLoading = true;
+    });
   }
 
   uploadFile() async {
@@ -65,7 +100,19 @@ class _HomeState extends State<Home> {
     request.files.add(multipartFile!);
 
     request.send().then((response) {
-      if (response.statusCode == 200) print("Uploaded!");
+      setState(() {
+        showLoading = false;
+        showMessage = true;
+      });
+      if (response.statusCode == 200) {
+        setState(() {
+          _formKey.currentState?.reset();
+          _images.clear();
+        });
+        responseMessage = uploadSuccessMessage;
+      } else {
+        responseMessage = uploadErrorMessage;
+      }
     });
   }
 
@@ -98,26 +145,10 @@ class _HomeState extends State<Home> {
     });
   }
 
-  var issueList = {
-    'Pothole',
-    'Sinkhole',
-    'Burst Pipe',
-    'Traffic robot',
-    'Water outage',
-    'Street lights',
-    'Other'
-  };
-
   final _formKey = GlobalKey<FormBuilderState>();
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
         body: Center(
       child: FormBuilder(
@@ -126,6 +157,8 @@ class _HomeState extends State<Home> {
           padding:
               const EdgeInsets.symmetric(vertical: 130.0, horizontal: 50.0),
           child: Column(mainAxisAlignment: MainAxisAlignment.start, children: [
+            if (showLoading) spinkit,
+            if (showMessage) responseMessage,
             FormBuilderDropdown(
               name: 'issues',
               onChanged: (val) {
@@ -137,8 +170,7 @@ class _HomeState extends State<Home> {
               // initialValue: 'Male',
               allowClear: true,
               hint: const Text('Select issue'),
-              validator: FormBuilderValidators.compose(
-                  [FormBuilderValidators.required()]),
+              validator: FormBuilderValidators.required(),
               items: issueList
                   .map((issue) => DropdownMenuItem(
                         value: issue,
@@ -148,6 +180,7 @@ class _HomeState extends State<Home> {
             ),
             FormBuilderChoiceChip(
               name: 'choice_chip',
+              validator: FormBuilderValidators.required(),
               onChanged: (val) {
                 severity = val as String?;
               },
@@ -164,12 +197,15 @@ class _HomeState extends State<Home> {
             ),
             FormBuilderTextField(
               name: 'comments',
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp("^[A-Za-z\\s0-9]*")),
+              ],
               onChanged: (val) {
-                comments = val as String?;
+                comments = val;
               },
+              validator: FormBuilderValidators.required(),
               decoration: const InputDecoration(
-                labelText:
-                    'Comments',
+                labelText: 'Comments',
               ),
             ),
             const Spacer(),
@@ -210,6 +246,7 @@ class _HomeState extends State<Home> {
                     }
                   }),
             const Spacer(),
+            if (noImage) noImageAdded,
             MaterialButton(
               color: Colors.green,
               // color: Theme.of(context).colorScheme.secondary,
@@ -220,7 +257,19 @@ class _HomeState extends State<Home> {
                 style: TextStyle(color: Colors.white),
               ),
               onPressed: () {
-                submitData();
+                _formKey.currentState!.save();
+                if (_images.isEmpty) {
+                  setState(() {
+                    noImage = true;
+                  });
+                } else {
+                  setState(() {
+                    noImage = false;
+                  });
+                }
+                if (_formKey.currentState!.validate()) {
+                  submitData();
+                }
               },
             ),
           ]),
