@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -10,21 +11,14 @@ import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:location/location.dart' as location_package;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../common/card_picture.dart';
 import '../common/take_photo.dart';
 
 class Home extends StatefulWidget {
   const Home({Key? key, required this.title}) : super(key: key);
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -57,6 +51,7 @@ class _HomeState extends State<Home> {
     'Street lights',
     'Other'
   };
+  late final SharedPreferences prefs;
 
   static const spinkit = SpinKitCircle(
     color: Colors.blue,
@@ -93,6 +88,58 @@ class _HomeState extends State<Home> {
     });
   }
 
+  showSafetyDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // return object of type Dialog
+        return AlertDialog(
+          title: const Text("Safety warning"),
+          content: const Text(
+              "Its important to always be safe! Please ensure you are not driving and are in a safe area when reporting an issue."),
+          actions: <Widget>[
+            // usually buttons at the bottom of the dialog
+            TextButton(
+              child: const Text("I understand!"),
+              onPressed: () {
+                // Save an double value to 'decimal' key.
+                Navigator.pop(context);
+              },
+            ),
+            TextButton(
+              child: const Text("Cancel"),
+              onPressed: () {
+                SystemNavigator.pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  showErrorDialog(String title, String content) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        // return object of type Dialog
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: <Widget>[
+            // usually buttons at the bottom of the dialog
+            TextButton(
+              child: const Text("I understand!"),
+              onPressed: () {
+                SystemNavigator.pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   uploadFile() async {
     var postUri = Uri.parse("http://$VM_VAR:8080/data/api/v1/addFlutterData");
     var request = http.MultipartRequest("POST", postUri);
@@ -123,7 +170,6 @@ class _HomeState extends State<Home> {
       setState(() {
         _currentPosition = position;
         dataMap["location"] = "${position.latitude},${position.longitude}";
-        print(_currentPosition);
         uploadFile();
       });
     }).catchError((e) {
@@ -143,6 +189,50 @@ class _HomeState extends State<Home> {
         _cameraDescription = camera;
       });
     });
+
+    checkUserConnection();
+    checkLocationActive();
+    checkSafetyCheck();
+  }
+
+  Future checkSafetyCheck() async {
+    prefs = await SharedPreferences.getInstance();
+
+    final bool? safetyCheckAck = prefs.getBool('safetyCheckAck');
+
+    if (safetyCheckAck == null) {
+      await prefs.setBool('safetyCheckAck', true);
+      showSafetyDialog();
+    }
+  }
+
+  Future checkLocationActive() async {
+    var location = location_package.Location();
+    bool enabled = await location.serviceEnabled();
+
+    if (!enabled) {
+      showErrorDialog("Location",
+          "This app requires your location to operate. Please enable and relaunch the application");
+    }
+  }
+
+  bool activeConnection = false;
+
+  Future checkUserConnection() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        setState(() {
+          activeConnection = true;
+        });
+      }
+    } on SocketException catch (_) {
+      setState(() {
+        activeConnection = false;
+        showErrorDialog("Internet Connection",
+            "This app requires an internet connection to operate. Please enable and relaunch the application");
+      });
+    }
   }
 
   final _formKey = GlobalKey<FormBuilderState>();
