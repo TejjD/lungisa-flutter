@@ -18,9 +18,7 @@ import '../common/card_picture.dart';
 import '../common/take_photo.dart';
 
 class Home extends StatefulWidget {
-  const Home({Key? key, required this.title}) : super(key: key);
-
-  final String title;
+  const Home({Key? key}) : super(key: key);
 
   @override
   State<Home> createState() => _HomeState();
@@ -34,6 +32,7 @@ class _HomeState extends State<Home> {
   String? comments;
   String? severity;
   String? date;
+  String? text;
   http.MultipartFile? multipartFile;
   Map<String, String> dataMap = {};
   Position? _currentPosition;
@@ -68,11 +67,9 @@ class _HomeState extends State<Home> {
       "An unexpected issue has occurred, please attempt to submit at a later stage",
       style: TextStyle(color: Colors.red));
 
-  Future<void> submitData() async {
+  Future<void> submitData() async{
     DateTime now = DateTime.now();
     String formattedDate = DateFormat('kk:mm:ss \n EEE d MMM').format(now);
-
-    await _getCurrentLocation();
 
     multipartFile = await http.MultipartFile.fromPath('image', _images.first);
 
@@ -86,6 +83,8 @@ class _HomeState extends State<Home> {
       showMessage = false;
       showLoading = true;
     });
+
+    uploadFile();
   }
 
   showSafetyDialog() {
@@ -152,9 +151,12 @@ class _HomeState extends State<Home> {
         showLoading = false;
         showMessage = true;
       });
+      print(response.statusCode);
       if (response.statusCode == 200) {
         setState(() {
           _formKey.currentState?.reset();
+          _formKey.currentState!.fields['comments']?.didChange("");
+          issues = null;
           _images.clear();
         });
         responseMessage = uploadSuccessMessage;
@@ -171,11 +173,11 @@ class _HomeState extends State<Home> {
       setState(() {
         _currentPosition = position;
         dataMap["location"] = "${position.latitude},${position.longitude}";
-        uploadFile();
       });
     }).catchError((e) {
       print(e);
     });
+
   }
 
   @override
@@ -189,8 +191,9 @@ class _HomeState extends State<Home> {
       setState(() {
         _cameraDescription = camera;
       });
-    });
 
+    });
+    _getCurrentLocation();
     checkUserConnection();
     checkLocationActive();
     checkSafetyCheck();
@@ -253,6 +256,7 @@ class _HomeState extends State<Home> {
               name: 'issues',
               onChanged: (val) {
                 issues = val as String?;
+                setCommentText();
               },
               decoration: const InputDecoration(
                 labelText: 'Issue',
@@ -287,6 +291,7 @@ class _HomeState extends State<Home> {
             ),
             FormBuilderTextField(
               name: 'comments',
+              maxLines: null,
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp("^[A-Za-z\\s0-9]*")),
               ],
@@ -366,5 +371,20 @@ class _HomeState extends State<Home> {
         ),
       ),
     ));
+  }
+
+  void setCommentText() async {
+    if (issues != null) {
+      List<Placemark> placemark = await Geolocator().placemarkFromCoordinates(
+          _currentPosition?.latitude, _currentPosition?.longitude);
+      var first = placemark.first;
+      setState(() {
+        text = ('$issues issue found: ${first.subThoroughfare} ${first
+            .thoroughfare}, ${first.subLocality}, ${first.locality}');
+        _formKey.currentState!.fields['comments']?.didChange(text.toString());
+        print('${first.subThoroughfare} ${first.thoroughfare}, ${first
+            .subLocality}, ${first.locality}');
+      });
+    }
   }
 }

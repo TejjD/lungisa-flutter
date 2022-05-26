@@ -68,6 +68,7 @@ class _TakePhotoState extends State<TakePhoto> {
           }
         },
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const Home(title: 'Lungisa'),
+      home: const Home(),
       supportedLocales: const [
         Locale('en'),
         Locale('uk'),
